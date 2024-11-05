@@ -1,5 +1,5 @@
 import pygame
-#from pygame.sprite import _Group
+import os
 
 # Initialize pygame
 pygame.init()
@@ -39,24 +39,26 @@ class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite
         self.speed = speed
         self.vel_y = 0 # y velocity for jump
         self.jump = False
+        self.in_air = True
         self.direction = 1 # Moving left(1)  or right(-1)
         self.flip = False # Flip player
         self.animation_list = [] # List of animations; idle, jump..
         self.frame_index = 0 # Index
         self.action = 0 # Index used to loop thru animation_list 
         self.update_time = pygame.time.get_ticks() # Timestamp when instance is created
-        temp_list = [] # Empty list
-        for i in range(5): # IDLE
-            img = pygame.image.load(f'img/{self.char_type}/Idle/{i}.png') # Loads character image one by one
-            img = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale))) # Scales image
-            temp_list.append(img)
-        self.animation_list.append(temp_list)
-        temp_list = []
-        for i in range(6): # RUN
-            img = pygame.image.load(f'img/{self.char_type}/Run/{i}.png') 
-            img = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale))) 
-            temp_list.append(img)
-        self.animation_list.append(temp_list)
+
+        # Load all images for the players
+        animation_types = ['Idle', 'Run', 'Jump']
+        for animation in animation_types:
+            # reset temporary list of images
+            temp_list = [] # Empty list
+            # count no of files in the folder
+            num_of_frames = len(os.listdir(f'img/{self.char_type}/{animation}'))
+            for i in range(num_of_frames): 
+                img = pygame.image.load(f'img/{self.char_type}/{animation}/{i}.png') # Loads character image one by one
+                img = pygame.transform.scale(img, (int(img.get_width() * scale), int(img.get_height() * scale))) # Scales image
+                temp_list.append(img)
+            self.animation_list.append(temp_list)
         self.image = self.animation_list[self.action][self.frame_index]
         self.rect = self.image.get_rect() # it gives you a Rect object with the same width and height as the surface.
         self.rect.center = (x, y) # Centers it
@@ -79,9 +81,10 @@ class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite
             self.direction = 1
 
         # jump
-        if self.jump == True:
+        if self.jump == True and self.in_air == False:
             self.vel_y = -11
             self.jump = False
+            self.in_air = True
 
         # apply gravity
         self.vel_y += GRAVITY
@@ -92,7 +95,7 @@ class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite
         # check collision with floor
         if self.rect.bottom + dy > 300:
             dy = 300 - self.rect.bottom
-
+            self.in_air = False
 
         # Update rectangle position
         self.rect.x += dx
@@ -146,7 +149,9 @@ while run:
  
     # update player actions
     if player.alive:
-        if moving_left or moving_right:
+        if player.in_air:
+            player.update_action(2) # 2: JUMP
+        elif moving_left or moving_right:
             player.update_action(1) # 1: RUN
         else:
             player.update_action(0) # 0: IDLE
