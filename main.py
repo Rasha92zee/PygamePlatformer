@@ -17,7 +17,7 @@ FPS = 60
 
 # Define game variables
 GRAVITY = 0.75
-TILE_SIZE = 40
+TILE_SIZE = 40 # Tile in the game
 
 # Define player action variables
 moving_left = False
@@ -31,10 +31,31 @@ grenade_thrown = False
 bullet_img = pygame.image.load('img/icons/bullet.png').convert_alpha()
 #grenade
 grenade_img = pygame.image.load('img/icons/grenade.png').convert_alpha()
+# pick up boxes
+health_box_img = pygame.image.load('img/icons/health_box.png').convert_alpha()
+ammo_box_img = pygame.image.load('img/icons/ammo_box.png').convert_alpha()
+grenade_box_img = pygame.image.load('img/icons/grenade_box.png').convert_alpha()
+# Dict containing item boxes/types
+item_boxes = {
+    'Health'    :   health_box_img,
+    'Ammo'      :   ammo_box_img,
+    'Grenade'   :   grenade_box_img
+} 
 
 # Define colors
 BG = (144, 201, 120)
 RED = (255, 0, 0)
+WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
+BLACK = (0,0,0)
+
+#define font
+font = pygame.font.SysFont('simsun',30)
+
+def draw_text(text, font, text_col, x, y):
+    img = font.render(text, True, text_col)  # Render font to an image
+    screen.blit(img, (x, y))
+
 
 def draw_bg():
     screen.fill(BG)
@@ -170,6 +191,49 @@ class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite
 
     def draw(self): # Creates a method that draws the image (img) at the location (rect)
         screen.blit(pygame.transform.flip(self.image, self.flip, False), self.rect) 
+        # pygame.draw.rect(screen, RED, self.rect, 1) shows rect of player
+    
+class ItemBox(pygame.sprite.Sprite):
+    def __init__(self, item_type, x, y):
+        pygame.sprite.Sprite.__init__(self)
+        self.item_type = item_type
+        self.image = item_boxes[self.item_type] #load image
+        self.rect = self.image.get_rect()
+        # position it in the middle of our TILE since these boxes aren't that big
+        self.rect.midtop = (x + TILE_SIZE // 2, y + (TILE_SIZE - self.image.get_height()))
+
+    def update(self):
+        # check if the player has picked up any item_boxes
+        # sprite_collide looks for collision btw sprite & group
+        # look for collision btw rectangles and not entire sprite groups
+        if pygame.sprite.collide_rect(self, player): # collision btw self: itembox rect, player: player rect
+            #check what kind of box it was
+            if self.item_type == 'Health':
+                player.health += 25
+                if player.health > player.max_health:
+                    player.health = player.max_health
+            elif self.item_type == 'Ammo':
+                player.ammo += 15 # 15 bullets
+            elif self.item_type == 'Grenade':
+                player.grenades += 3
+            # delete the item box
+            self.kill()
+
+class HealthBar():
+    def __init__(self, x, y, health, max_health):
+        self.x = x
+        self.y = y 
+        self.health = health
+        self.max_health = max_health
+
+    def draw(self, health):
+        # update with new health
+        self.health = health
+        #calculate health ratio 
+        ratio = self.health / self.max_health
+        pygame.draw.rect(screen, BLACK, (self.x - 2, self.y - 2, 154, 24))
+        pygame.draw.rect(screen, RED, (self.x, self.y, 150, 20))
+        pygame.draw.rect(screen, GREEN, (self.x, self.y, 150 * ratio, 20))
 
 class Bullet(pygame.sprite.Sprite):
     def __init__(self, x, y, direction):
@@ -280,16 +344,29 @@ enemy_group = pygame.sprite.Group()
 bullet_group = pygame.sprite.Group()
 grenade_group = pygame.sprite.Group()
 explosion_group = pygame.sprite.Group()        
+item_box_group = pygame.sprite.Group()        
+
+
+# INSTANCES -------------------------------------------------------------------
+# Temporary - create item boxes
+item_box = ItemBox('Health', 100, 260)
+item_box_group.add(item_box)
+item_box = ItemBox('Ammo', 400, 260)
+item_box_group.add(item_box)
+item_box = ItemBox('Grenade', 500, 260)
+item_box_group.add(item_box)
 
 
 # Player coordinates
 player = Soldier('player', 200, 200, 3, 5, 20, 5) # Creates instance named player
+health_bar = HealthBar(10, 10, player.health, player.health)
+
 enemy = Soldier('enemy', 400, 200, 3, 5, 20, 0) # Creates instance named player
 enemy2 = Soldier('enemy', 300, 300, 3, 5, 20, 0) # Creates instance named player
 
 enemy_group.add(enemy)
 enemy_group.add(enemy2)
-
+#--------------------------------------------------------------------------------
 
 # Main game loop
 run = True
@@ -298,6 +375,16 @@ while run:
     clock.tick(FPS) # Controls framerate & ensures game runs at a consistent speed
 
     draw_bg()
+    #show player health
+    health_bar.draw(player.health)
+    # show ammo
+    draw_text('AMMO:', font, WHITE, 10, 35)
+    for x in range(player.ammo):
+        screen.blit(bullet_img, (90 + (x * 10), 40))
+    # show grenades
+    draw_text('GRENADES:', font, WHITE, 10, 60)
+    for x in range(player.grenades):
+        screen.blit(grenade_img, (135 + (x * 15), 63))
 
     player.update()
     player.draw()
@@ -312,6 +399,8 @@ while run:
     bullet_group.draw(screen)
     grenade_group.draw(screen)
     explosion_group.draw(screen)
+    item_box_group.update()
+    item_box_group.draw(screen)
 
     # update player actions
     if player.alive:
