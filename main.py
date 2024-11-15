@@ -71,8 +71,6 @@ def draw_text(text, font, text_col, x, y):
 
 def draw_bg():
     screen.fill(BG)
-    pygame.draw.line(screen, RED, (0, 300), (SCREEN_WIDTH, 300))
-
 
 class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite.Sprite. Soldier gains all the functionality of the Sprite class 
     def __init__(self, char_type, x, y, scale, speed, ammo, grenades): # Constructor method.
@@ -117,6 +115,9 @@ class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite
         self.image = self.animation_list[self.action][self.frame_index]
         self.rect = self.image.get_rect() # it gives you a Rect object with the same width and height as the surface.
         self.rect.center = (x, y) # Centers it
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
+
 
     def update(self):
         self.update_animation()
@@ -154,10 +155,22 @@ class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite
             self.vel_y
         dy += self.vel_y
 
-        # check collision with floor
-        if self.rect.bottom + dy > 300:
-            dy = 300 - self.rect.bottom
-            self.in_air = False
+        # check for collision
+        for tile in world.obstacle_list:
+            #check collision in the x direction
+            if tile[1].colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
+                dx = 0
+            #check collision in the y direction
+            if tile[1].colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
+                # check if below the ground i.e. jumping
+                if self.vel_y < 0:
+                    self.vel_y = 0
+                    dy = tile[1].bottom - self.rect.top
+                # check if above the ground i.e. falling
+                elif self.vel_y >= 0:
+                    self.vel_y = 0
+                    self.in_air = False
+                    dy = tile[1].top - self.rect.bottom   
 
         # Update rectangle position
         self.rect.x += dx
@@ -371,6 +384,10 @@ class Bullet(pygame.sprite.Sprite):
         #check if bullet has gone off screen
         if self.rect.right < 0 or self.rect.left > SCREEN_WIDTH:
             self.kill()
+        #check for collision with level
+        for tile in world.obstacle_list:
+            if tile[1].colliderect(self.rect):
+                self.kill()
 
         # check collision with characters
         if pygame.sprite.spritecollide(player, bullet_group, False):
@@ -393,6 +410,8 @@ class Grenade(pygame.sprite.Sprite):
         self.image = grenade_img
         self.rect = self.image.get_rect()
         self.rect.center = (x, y)
+        self.width = self.image.get_width()
+        self.height = self.image.get_height()
         self.direction = direction
 
     def update(self):          # grenade trajectory
@@ -400,15 +419,23 @@ class Grenade(pygame.sprite.Sprite):
         dx = self.direction * self.speed   #change in x coordinate of the grenade = speed*direction
         dy = self.vel_y
 
-        # check collision with floor
-        if self.rect.bottom + dy > 300:
-            dy = 300 - self.rect.bottom
-            self.speed = 0
-
-        #check collision with walls
-        if self.rect.left + dx < 0 or self.rect.right + dx > SCREEN_WIDTH:
-            self.direction *= -1 # flip grenade direction
-            dx = self.direction * self.speed
+        #check for collision with level
+        for tile in world.obstacle_list:
+            #check collision with walls
+            if tile[1].colliderect(self.rect.x + dx, self.rect.y, self.width, self.height):
+                self.direction *= -1 # flip grenade direction
+                dx = self.direction * self.speed
+        #check collision in the y direction
+            if tile[1].colliderect(self.rect.x, self.rect.y + dy, self.width, self.height):
+                self.speed = 0
+                # check if below the ground i.e. thrown up
+                if self.vel_y < 0:
+                    self.vel_y = 0
+                    dy = tile[1].bottom - self.rect.top
+                # check if above the ground i.e. falling
+                elif self.vel_y >= 0:
+                    self.vel_y = 0
+                    dy = tile[1].top - self.rect.bottom   
 
         # upgrade grenade position
         self.rect.x += dx
