@@ -41,6 +41,7 @@ grenade_thrown = False
 # Button images
 start_img = pygame.image.load('img/start_btn.png').convert_alpha()
 exit_img = pygame.image.load('img/exit_btn.png').convert_alpha()
+restart_img = pygame.image.load('img/restart_btn.png').convert_alpha()
 # bg images
 pine1_img = pygame.image.load('img/Background/pine1.png').convert_alpha()
 pine2_img = pygame.image.load('img/Background/pine2.png').convert_alpha()
@@ -92,6 +93,25 @@ def draw_bg():
         screen.blit(mountain_img, ((x * width) - bg_scroll * 0.6, SCREEN_HEIGHT - mountain_img.get_height() - 300))
         screen.blit(pine1_img, ((x * width) - bg_scroll * 0.7, SCREEN_HEIGHT - mountain_img.get_height() - 190))
         screen.blit(pine2_img, ((x * width) - bg_scroll * 0.9, SCREEN_HEIGHT - mountain_img.get_height() - 85))
+
+#function to reset level
+def reset_level():
+    enemy_group.empty() #deletes all instances of sprite
+    bullet_group.empty()
+    grenade_group.empty()
+    explosion_group.empty()
+    item_box_group.empty()
+    decoration_group.empty()
+    water_group.empty()
+    exit_group.empty()
+
+    #create empty tile list
+    data = []
+    for row in range(ROWS):
+        r = [-1] * COLS # indiv. row
+        data.append(r)
+
+    return data
 
 class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite.Sprite. Soldier gains all the functionality of the Sprite class 
     def __init__(self, char_type, x, y, scale, speed, ammo, grenades): # Constructor method.
@@ -197,6 +217,15 @@ class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite
                     self.vel_y = 0
                     self.in_air = False
                     dy = tile[1].top - self.rect.bottom   
+
+
+        #check for collision with water
+        if pygame.sprite.spritecollide(self, water_group, False):
+            self.health = 0
+
+        #check if fallen of the map
+        if self.rect.bottom > SCREEN_HEIGHT:
+            self.health = 0
 
         #check if going off the edges of the screen
         if self.char_type == 'player':
@@ -547,6 +576,7 @@ class Explosion(pygame.sprite.Sprite):
 # Create buttons               
 start_button = button.Button(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 130, start_img, 1)
 exit_button = button.Button(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 50, exit_img, 1)
+restart_button = button.Button(SCREEN_WIDTH // 2 - 10, SCREEN_HEIGHT // 2 - 50, restart_img, 2)
 
 # Create sprite groups
 enemy_group = pygame.sprite.Group()
@@ -654,6 +684,19 @@ while run:
                 player.update_action(0) # 0: IDLE
             screen_scroll = player.move(moving_left, moving_right)
             bg_scroll -= screen_scroll 
+        else:
+            screen_scroll = 0
+            if restart_button.draw(screen):
+                bg_scroll = 0
+                world_data = reset_level()
+                # LOAD in level data and create world
+                with open(f'./Shooter/level{level}_data.csv', newline='') as csvfile:
+                    reader = csv.reader(csvfile, delimiter=',')
+                    for x, row in enumerate(reader):
+                        for y, tile in enumerate(row):
+                            world_data[x][y] = int(tile)
+                world = World()
+                player, health_bar = world.process_data(world_data)         
 
     # Event Handler
     for event in pygame.event.get():  # Listening for an event to quit game
