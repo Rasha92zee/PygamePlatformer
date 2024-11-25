@@ -25,6 +25,7 @@ SCROLL_THRESH = 200 # Threshold; distance a player can get b4 screen starts to s
 COLS = 150
 TILE_SIZE = SCREEN_HEIGHT // ROWS
 TILE_TYPES = 21 # 21 Indiv. tiles
+MAX_LEVELS = 3
 screen_scroll = 0
 bg_scroll = 0
 level = 1
@@ -223,6 +224,11 @@ class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite
         if pygame.sprite.spritecollide(self, water_group, False):
             self.health = 0
 
+        #check for collision with exit
+        level_complete = False
+        if pygame.sprite.spritecollide(self, exit_group, False):
+            level_complete = True
+
         #check if fallen of the map
         if self.rect.bottom > SCREEN_HEIGHT:
             self.health = 0
@@ -246,7 +252,7 @@ class Soldier(pygame.sprite.Sprite): # Class Soldier inherits from pygame.sprite
                 self.rect.x -= dx #reverse
                 screen_scroll = -dx
 
-        return screen_scroll
+        return screen_scroll, level_complete
 
     def shoot(self):
         if self.shoot_cooldown == 0  and self.ammo > 0:
@@ -576,7 +582,7 @@ class Explosion(pygame.sprite.Sprite):
 # Create buttons               
 start_button = button.Button(SCREEN_WIDTH // 2 - 130, SCREEN_HEIGHT // 2 - 130, start_img, 1)
 exit_button = button.Button(SCREEN_WIDTH // 2 - 110, SCREEN_HEIGHT // 2 + 50, exit_img, 1)
-restart_button = button.Button(SCREEN_WIDTH // 2 - 10, SCREEN_HEIGHT // 2 - 50, restart_img, 2)
+restart_button = button.Button(SCREEN_WIDTH // 2 - 120, SCREEN_HEIGHT // 2 - 50, restart_img, 2)
 
 # Create sprite groups
 enemy_group = pygame.sprite.Group()
@@ -682,8 +688,23 @@ while run:
                 player.update_action(1) # 1: RUN
             else:
                 player.update_action(0) # 0: IDLE
-            screen_scroll = player.move(moving_left, moving_right)
+            screen_scroll, level_complete = player.move(moving_left, moving_right)
             bg_scroll -= screen_scroll 
+            #check if player has completed the level
+            if level_complete:
+                level += 1
+                bg_scroll = 0
+                world_data = reset_level() 
+                if level <= MAX_LEVELS:
+                    # LOAD in level data and create world
+                    with open(f'./Shooter/level{level}_data.csv', newline='') as csvfile:
+                        reader = csv.reader(csvfile, delimiter=',')
+                        for x, row in enumerate(reader):
+                            for y, tile in enumerate(row):
+                                world_data[x][y] = int(tile)
+                    world = World()
+                    player, health_bar = world.process_data(world_data)
+
         else:
             screen_scroll = 0
             if restart_button.draw(screen):
